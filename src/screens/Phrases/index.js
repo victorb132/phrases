@@ -1,6 +1,19 @@
-import { useAsyncStorage } from '@react-native-async-storage/async-storage'
 import { useState, useEffect } from 'react'
+import { Alert } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons'
+
+// Importar a referência do nosso banco de dados do firebase
+import { db } from '../../config/firebase';
+// Importar as funções do firestore
+import {
+  query,
+  collection,
+  getDocs,
+  addDoc,
+  where,
+  deleteDoc,
+  doc
+} from 'firebase/firestore';
 
 import { Input } from '../../components/Input';
 import {
@@ -13,24 +26,85 @@ import {
 } from './styles';
 
 export default function Phrases() {
-  const { getItem, setItem } = useAsyncStorage('@phrases');
   const [phrases, setPhrases] = useState([]);
   const [newPhrase, setNewPhrase] = useState('');
 
   const loadPhrases = async () => {
-    const stringPhrases = await getItem();
-    const parsedPhrases = await JSON.parse(stringPhrases);
+    // Query para buscar nossa coleção no banco de dados
+    const queryOnDb = query(collection(db, 'phrases'));
 
-    if (parsedPhrases && parsedPhrases.length > 0) {
-      setPhrases(parsedPhrases);
-    }
+    // Buscar os dados (documentos) no banco de dados
+    const querySnapshot = await getDocs(queryOnDb);
+
+    // Array vazio para armazenar os nossos dados (documentos)
+    let phrases = [];
+
+    // Para cada dado encontrado, adicionamos o dado (documento) no array
+    querySnapshot.forEach((doc) => {
+      phrases.push(doc.data());
+    });
+
+    // Adicionar todas as frases ao nosso estado
+    setPhrases(phrases)
   }
 
   const addPhrase = async () => {
-    const newPhrases = [...phrases, `"${newPhrase}"`];
-    await setItem(JSON.stringify(newPhrases));
-    setPhrases(newPhrases);
+    // Construir o objeto que será adicionado ao banco de dados
+    const newPhraseObject = {
+      id: Math.random().toString(),
+      text: `"${newPhrase}"`
+    }
+
+    // Adicionar a nova frase ao banco de dados
+    await addDoc(collection(db, 'phrases'), newPhraseObject);
+
+    // Cria um novo array local com a nova frase
+    const updatedPhrases = [...phrases, newPhraseObject];
+
+    // Adicionar todas as frases ao nosso estado
+    setPhrases(updatedPhrases);
+
+    // Limpar o nosso campo de Input
     setNewPhrase('');
+  }
+
+  const deletePhrase = async (phrase) => {
+    Alert.alert(
+      'Deletar frase',
+      'Tem certeza que deseja deletar essa frase?',
+      [
+        {
+          text: 'Cancelar',
+          onPress: () => { return },
+          style: 'cancel'
+        },
+        {
+          text: 'Sim, deletar',
+          onPress: async () => {
+            // Query para buscar nossa coleção no banco de dados
+            const queryOnDb = query(collection(db, 'phrases'));
+
+            // Consultar a nossa coleção de phrases e obter o dado (documento)
+            // referente a frase que queremos excluir.
+            const querySnapshot = await getDocs(queryOnDb, where('id', '==', phrase));
+
+            // Pegar o ID do documento que queremos excluir
+            const docId = querySnapshot.docs[0].id;
+
+            // Exclui o documento do banco de dados
+            await deleteDoc(doc(db, 'phrases', docId));
+
+            // Cria um novo array local sem a frase que foi excluida
+            const updatedPhrases = phrases.filter(item => item.id !== phrase);
+
+            // Adicionar todas as frases ao nosso estado
+            setPhrases(updatedPhrases);
+          },
+          style: 'default'
+        }
+      ],
+      { cancelable: false }
+    )
   }
 
   useEffect(() => {
@@ -43,8 +117,10 @@ export default function Phrases() {
         data={phrases}
         keyExtractor={(item, index) => index.toString()}
         renderItem={({ item }) => (
-          <CardPhrases>
-            <CardTextPhrases>{item}</CardTextPhrases>
+          <CardPhrases
+            onLongPress={() => deletePhrase(item.id)}
+          >
+            <CardTextPhrases>{item.text}</CardTextPhrases>
           </CardPhrases>
         )}
       />
