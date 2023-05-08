@@ -12,7 +12,7 @@ export const ListPhrases = styled.FlatList`
   padding: 10px 20px;
 `;
 
-export const CardPhrases = styled.View`
+export const CardPhrases = styled.TouchableOpacity`
   background-color: #ffffff;
   padding: 20px;
   margin: 10px 0;

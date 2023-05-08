@@ -1,6 +1,9 @@
 import { useAsyncStorage } from '@react-native-async-storage/async-storage'
 import { useState, useEffect } from 'react'
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons'
+import { db } from "../../config/firebase";
+import { query, getDocs, collection, addDoc, deleteDoc, doc, where } from "firebase/firestore";
+import { Alert } from 'react-native';
 
 import { Input } from '../../components/Input';
 import {
@@ -18,18 +21,29 @@ export default function Phrases() {
   const [newPhrase, setNewPhrase] = useState('');
 
   const loadPhrases = async () => {
-    const stringPhrases = await getItem();
-    const parsedPhrases = await JSON.parse(stringPhrases);
+    const q = query(collection(db, "phrases"));
 
-    if (parsedPhrases && parsedPhrases.length > 0) {
-      setPhrases(parsedPhrases);
-    }
+    const querySnapshot = await getDocs(q);
+
+    let phrases = [];
+
+    querySnapshot.forEach((doc) => {
+      phrases.push(doc.data());
+    });
+
+    setPhrases(phrases);
   }
 
   const addPhrase = async () => {
-    const newPhrases = [...phrases, `"${newPhrase}"`];
-    await setItem(JSON.stringify(newPhrases));
-    setPhrases(newPhrases);
+    const newPhraseObject = {
+      name: `"${newPhrase}"`
+    };
+
+    await addDoc(collection(db, "phrases"), newPhraseObject);
+
+    let updatedPhrases = [...phrases, newPhraseObject];
+
+    setPhrases(updatedPhrases);
     setNewPhrase('');
   }
 
@@ -37,14 +51,48 @@ export default function Phrases() {
     loadPhrases();
   }, [])
 
+  let deletePhrase = async (phrase) => {
+    Alert.alert(
+      "Deletar Frase",
+      "Tem certeza que deseja remover esta frase?",
+      [
+        {
+          text: "Cancelar",
+          onPress: () => {
+            return;
+          },
+          style: "cancel"
+        },
+        {
+          text: "OK",
+          onPress: async () => {
+            // Consulta a coleção "phrases" para obter o documento com o campo "texto" correspondente
+            const querySnapshot = await getDocs(query(collection(db, "phrases"), where("name", "==", phrase)));
+
+            // Obtém o id do documento correspondente
+            const docId = querySnapshot.docs[0].id;
+
+            // Exclui o documento usando o id
+            await deleteDoc(doc(db, "phrases", docId));
+
+            let updatedPhrases = phrases.filter((item) => item.name != phrase);
+
+            setPhrases(updatedPhrases);
+          }
+        }
+      ],
+      { cancelable: false }
+    );
+  };
+
   return (
     <Container>
       <ListPhrases
         data={phrases}
         keyExtractor={(item, index) => index.toString()}
         renderItem={({ item }) => (
-          <CardPhrases>
-            <CardTextPhrases>{item}</CardTextPhrases>
+          <CardPhrases onLongPress={() => deletePhrase(item.name)}>
+            <CardTextPhrases>{item.name}</CardTextPhrases>
           </CardPhrases>
         )}
       />

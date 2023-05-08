@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useAsyncStorage } from '@react-native-async-storage/async-storage'
+import { db } from "../../config/firebase";
+import { query, getDocs, collection, addDoc, deleteDoc, doc } from "firebase/firestore";
 import {
   Container,
   PhraseText,
@@ -8,27 +9,32 @@ import {
 } from './styles';
 
 export default function Home() {
-  const { getItem } = useAsyncStorage('@phrases');
-
   const [phrase, setPhrase] = useState();
 
-  const loadPhrases = async () => {
-    const stringPhrases = await getItem();
-    const parsedPhrases = JSON.parse(stringPhrases);
+  const loadPhrase = async () => {
+    const q = query(collection(db, "phrases"));
 
-    if (parsedPhrases && parsedPhrases.length > 0) {
-      setPhrase(parsedPhrases[Math.floor(Math.random() * parsedPhrases.length)])
-    }
+    const querySnapshot = await getDocs(q);
+
+    let phrases = [];
+
+    querySnapshot.forEach((doc) => {
+      phrases.push(doc.data());
+    });
+
+    console.log(phrases);
+
+    setPhrase(phrases[Math.floor(Math.random() * phrases.length)]);
   }
 
   useEffect(() => {
-    loadPhrases();
+    loadPhrase();
   }, []);
 
   return (
     <Container>
-      <PhraseText>{phrase}</PhraseText>
-      <PhraseButton onPress={() => loadPhrases()}>
+      <PhraseText>{phrase?.name}</PhraseText>
+      <PhraseButton onPress={() => loadPhrase()}>
         <PhraseButtonText>Mudar frase</PhraseButtonText>
       </PhraseButton>
     </Container >
