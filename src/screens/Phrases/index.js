@@ -41,7 +41,7 @@ export default function Phrases() {
 
     // Para cada dado encontrado, adicionamos o dado (documento) no array
     querySnapshot.forEach((doc) => {
-      phrases.push(doc.data());
+      phrases.push(doc.data(), doc.id);
     });
 
     // Adicionar todas as frases ao nosso estado
@@ -81,18 +81,9 @@ export default function Phrases() {
         {
           text: 'Sim, deletar',
           onPress: async () => {
-            // Query para buscar nossa coleção no banco de dados
-            const queryOnDb = query(collection(db, 'phrases'));
-
-            // Consultar a nossa coleção de phrases e obter o dado (documento)
-            // referente a frase que queremos excluir.
-            const querySnapshot = await getDocs(queryOnDb, where('id', '==', phrase));
-
-            // Pegar o ID do documento que queremos excluir
-            const docId = querySnapshot.docs[0].id;
 
             // Exclui o documento do banco de dados
-            await deleteDoc(doc(db, 'phrases', docId));
+            await deleteDoc(doc(db, 'phrases', phrase.id));
 
             // Cria um novo array local sem a frase que foi excluida
             const updatedPhrases = phrases.filter(item => item.id !== phrase);
